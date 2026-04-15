@@ -1,0 +1,3267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLE Tags – Asset Management</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+      font-size: 14px;
+      color: #384045;
+      background: #f0f2f4;
+      min-width: 1200px;
+    }
+
+    /* ── Header ──────────────────────────────────────────── */
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 64px;
+      background: #fff;
+      box-shadow: 0 1px 0 #dcdee0;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 200;
+    }
+
+    /* Mapon logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      text-decoration: none;
+    }
+    .logo svg { display: block; }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .header-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #8e9497;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .header-link svg { flex-shrink: 0; }
+
+    .notif-wrap { position: relative; }
+    .notif-badge {
+      position: absolute;
+      top: -7px; right: -8px;
+      background: #ff4141;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .user-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .user-avatar {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #c8cdd0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .user-text { display: flex; flex-direction: column; }
+    .user-name  { color: #797f82; font-size: 14px; line-height: 19px; }
+    .user-co    { color: #b2b5b7; font-size: 10px; line-height: 13px; }
+
+    /* ── Layout shell ────────────────────────────────────── */
+    .app-body { display: flex; padding-top: 64px; min-height: 100vh; }
+    /* When app-body is inside appView (dark header is in-flow, not fixed) */
+    #appView { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    #appView .app-body { padding-top: 0; flex: 1; overflow: hidden; min-height: 0; }
+    #appView .app-mv-nav { position: static; height: 100%; overflow-y: auto; flex-shrink: 0; }
+    #appView .text-nav { position: static; height: 100%; top: auto; left: auto; }
+    #appView .main { margin-left: 0; min-height: 0; flex: 1; overflow-y: auto; }
+
+    /* ── Icon sidebar ────────────────────────────────────── */
+    .icon-nav {
+      position: fixed;
+      top: 64px; left: 0;
+      width: 56px;
+      height: calc(100vh - 64px);
+      background: #384045;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+    .icon-nav-items { flex: 1; display: flex; flex-direction: column; }
+
+    .icon-btn {
+      width: 56px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,.55);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,.1); }
+    .icon-btn.hi     { background: rgba(255,255,255,.18); }
+    .icon-btn svg   { pointer-events: none; }
+
+    .icon-nav-badge {
+      position: absolute;
+      top: 5px; right: 5px;
+      background: #ff4141;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 22px;
+      height: 18px;
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .icon-nav-foot {
+      height: 46px;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,.4);
+      cursor: pointer;
+    }
+
+    /* ── Text sidebar ────────────────────────────────────── */
+    .text-nav {
+      position: fixed;
+      top: 64px; left: 56px;
+      width: 209px;
+      height: calc(100vh - 64px);
+      background: #fff;
+      border-right: 1px solid #e8eaeb;
+      overflow-y: auto;
+      z-index: 90;
+    }
+
+    .nav-item {
+      height: 51px;
+      display: flex; align-items: center;
+      padding: 0 24px;
+      font-size: 14px;
+      color: #384045;
+      cursor: pointer;
+      border-bottom: 1px solid #f2f3f4;
+    }
+    .nav-item:hover  { background: #f8f9fa; }
+    .nav-item.header { font-weight: 700; }
+    .nav-item.active { font-weight: 600; }
+
+    .nav-separator { height: 1px; background: #dcdee0; }
+
+    /* ── Main content ────────────────────────────────────── */
+    .main {
+      margin-left: 265px; /* 56 + 209 */
+      flex: 1;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* page title bar */
+    .page-title-bar {
+      background: #fff;
+      padding: 28px 24px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #dcdee0;
+    }
+    .page-title {
+      font-size: 28px;
+      font-weight: 500;
+      color: #384045;
+      line-height: 1;
+    }
+    .page-actions { display: flex; gap: 8px; }
+
+    .btn {
+      height: 32px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .btn-green { background: #98ca02; color: #fff; }
+    .btn-green:hover { background: #87b502; }
+
+    /* info banner */
+    .info-banner {
+      margin: 16px 0 0;
+      padding: 12px 16px;
+      background: #e8f4fd;
+      border: 1px solid #b8dcf8;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #384045;
+      line-height: 1.4;
+      position: relative;
+    }
+    .banner-close {
+      background: none; border: none; cursor: pointer;
+      color: #797f82; font-size: 18px; line-height: 1;
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+    .banner-close:hover { color: #384045; }
+
+    /* content card */
+    .card {
+      background: #fff;
+      margin-top: 0;
+    }
+
+    /* tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e8eaeb;
+      padding: 0 4px;
+    }
+    .tab {
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #797f82;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      font-weight: 500;
+      user-select: none;
+    }
+    .tab.active { color: #384045; border-bottom-color: #98ca02; font-weight: 600; }
+    .tab:hover:not(.active) { color: #384045; }
+
+    /* filter bar */
+    .filter-bar {
+      padding: 24px 24px 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-bottom: 1px solid #e8eaeb;
+    }
+    .filter-field { display: flex; flex-direction: column; gap: 5px; }
+    .filter-label { font-size: 13px; color: #384045; }
+    .filter-select {
+      width: 172px; height: 32px;
+      border: 1px solid #c8cdd0; border-radius: 3px;
+      padding: 0 8px; font-size: 14px; color: #384045;
+      background: #fff;
+      appearance: auto;
+    }
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 205px; height: 32px;
+      border: 1px solid #c8cdd0; border-radius: 3px;
+      padding: 0 34px 0 10px; font-size: 14px; color: #384045;
+      background: #fff;
+    }
+    .search-input::placeholder { color: #b2b5b7; }
+    .search-icon {
+      position: absolute;
+      right: 10px; top: 50%;
+      transform: translateY(-50%);
+      color: #8e9497;
+      pointer-events: none;
+    }
+
+    /* table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      height: 48px;
+      padding: 0 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #384045;
+      text-align: left;
+      border-bottom: 1px solid #dcdee0;
+      white-space: nowrap;
+    }
+    thead th .sort {
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    thead th .sort-arrow {
+      color: #8e9497;
+      font-size: 11px;
+    }
+
+    tbody tr { border-bottom: 1px solid #f0f1f2; }
+    tbody tr:hover { background: #f8f9fb; }
+
+    tbody td {
+      height: 48px;
+      padding: 0 16px;
+      font-size: 13px;
+      color: #384045;
+      white-space: nowrap;
+    }
+    tbody td.muted { color: #b2b5b7; }
+
+    /* toggle */
+    .toggle-label {
+      position: relative;
+      display: inline-block;
+      width: 30px; height: 16px;
+      cursor: pointer;
+    }
+    .toggle-label input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #c8cdd0;
+      border-radius: 16px;
+      transition: background .2s;
+    }
+    .toggle-thumb {
+      position: absolute;
+      width: 12px; height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      top: 2px; left: 2px;
+      transition: left .2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    .toggle-label input:checked ~ .toggle-track  { background: #98ca02; }
+    .toggle-label input:checked ~ .toggle-thumb  { left: 16px; }
+    .toggle-label input:disabled ~ .toggle-track { background: #e4e6e8; }
+    .toggle-label input:disabled ~ .toggle-thumb { background: #f0f1f2; box-shadow: none; }
+    .toggle-label:has(input:disabled) { cursor: not-allowed; }
+
+    /* action buttons */
+    .edit-btn {
+      background: none; border: none; cursor: pointer;
+      color: #4a9fd4; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 2px;
+    }
+    .edit-btn:hover { color: #2980b9; }
+    .assign-btn {
+      background: #fff;
+      border: 1px solid #c8cdd0;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #384045;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      height: 28px;
+    }
+    .assign-btn:hover { background: #f5f6f7; border-color: #a0a7ab; }
+
+    .del-btn {
+      background: none; border: none; cursor: pointer;
+      color: #8e9497;
+      display: inline-flex; align-items: center;
+      padding: 4px;
+    }
+    .del-btn:hover { color: #e74c3c; }
+
+    /* pagination */
+    .pag-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-top: 1px solid #e8eaeb;
+    }
+    .rows-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: #797f82;
+    }
+    .rows-select {
+      height: 28px;
+      border: 1px solid #c8cdd0; border-radius: 3px;
+      padding: 0 6px; font-size: 13px; color: #384045;
+      background: #fff;
+    }
+    .pagination { display: flex; align-items: center; gap: 4px; }
+    .pg-btn {
+      min-width: 24px; height: 24px;
+      border-radius: 3px; border: none;
+      background: #fff; font-size: 13px;
+      cursor: pointer; color: #797f82;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0 5px;
+    }
+    .pg-btn.active { background: #65b200; color: #fff; }
+    .pg-btn:hover:not(.active) { background: #f0f1f2; }
+
+    /* content area padding */
+    .page-body { padding: 0 24px 24px; }
+
+    /* ── Modal overlay ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* modal box */
+    .modal {
+      background: #fff;
+      border-radius: 4px;
+      width: 727px;
+      max-width: calc(100vw - 48px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      display: flex;
+      flex-direction: column;
+      transform: translateY(-12px);
+      transition: transform .18s ease;
+      overflow: visible; /* allow combobox dropdown to extend outside modal */
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    /* modal header */
+    .modal-header {
+      height: 56px;
+      background: #f5f6f7;
+      border-bottom: 1px solid #dcdee0;
+      border-radius: 4px 4px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 400;
+      color: #384045;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #8e9497;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px;
+      padding: 0;
+    }
+    .modal-close:hover { background: #e8eaeb; color: #384045; }
+
+    /* modal body */
+    .modal-body {
+      padding: 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* label-left field row */
+    .field-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .field-label {
+      width: 191px;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: #384045;
+      font-weight: 500;
+    }
+    .field-input {
+      flex: 1;
+      height: 32px;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      padding: 0 10px;
+      font-size: 14px;
+      color: #384045;
+      background: #fff;
+      outline: none;
+    }
+    .field-input:focus {
+      border-color: #98ca02;
+      box-shadow: 0 0 0 2px rgba(152,202,2,.15);
+    }
+    .field-input.readonly {
+      background: #f5f6f7;
+      color: #8e9497;
+      cursor: default;
+    }
+    .field-input.readonly:focus {
+      border-color: #c8cdd0;
+      box-shadow: none;
+    }
+
+    /* toggle inside modal — sits flush after label, no dead space */
+    .field-toggle {
+      display: flex;
+      align-items: center;
+    }
+
+    /* modal footer */
+    .tracking-hint {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: #f5f8ff;
+      border: 1px solid #c8d8f5;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #5a6470;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .tracking-hint svg { color: #4a7cc7; }
+    .tracking-hint strong { color: #384045; }
+
+    .modal-footer {
+      height: 64px;
+      background: #f5f6f7;
+      border-top: 1px solid #dcdee0;
+      border-radius: 0 0 4px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 24px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .btn-cancel {
+      height: 32px;
+      padding: 0 14px;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      color: #384045;
+      cursor: pointer;
+    }
+    .btn-cancel:hover { background: #f5f6f7; border-color: #a0a7ab; }
+    .btn-save {
+      height: 32px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 3px;
+      background: #98ca02;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-save:hover { background: #87b502; }
+    .btn-save:disabled { background: #c8e87a; cursor: not-allowed; }
+
+    /* ── Assign-to row (tracking ON) ────────────────────── */
+    .assign-row {
+      display: flex;
+      align-items: flex-start;
+      width: 100%;
+      overflow: visible;
+    }
+    .assign-row > .field-label { padding-top: 7px; }
+
+    .assign-fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .assign-dropdowns {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* ── Shared dropdown trigger ─────────────────────────── */
+    .dd-trigger {
+      height: 32px;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 8px 0 10px;
+      cursor: pointer;
+      gap: 6px;
+      user-select: none;
+      font-size: 14px;
+      color: #384045;
+      box-sizing: border-box;
+    }
+    .dd-trigger:hover { border-color: #a0a7ab; }
+    .dd-trigger.open  { border-color: #98ca02; box-shadow: 0 0 0 2px rgba(152,202,2,.15); }
+    .dd-trigger.disabled { background: #f5f6f7; color: #b2b5b7; pointer-events: none; }
+    .dd-chevron {
+      flex-shrink: 0;
+      color: #8e9497;
+      display: flex;
+      align-items: center;
+      transition: transform .15s;
+      margin-left: auto;
+      padding-left: 2px;
+    }
+    .dd-trigger.open .dd-chevron { transform: rotate(180deg); }
+
+    /* ── Type dropdown ───────────────────────────────────── */
+    .type-dd { position: relative; width: 134px; flex-shrink: 0; }
+    .type-dd-icon { flex-shrink: 0; color: #797f82; display: flex; align-items: center; }
+    .type-dd-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .type-dd-panel {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0;
+      min-width: 100%;
+      background: #fff;
+      border: 1px solid #dcdee0;
+      border-radius: 3px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      z-index: 300;
+      padding: 4px 0;
+    }
+    .type-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      font-size: 14px;
+      color: #384045;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .type-option:hover { background: #f5f6f7; }
+    .type-option.selected { background: #f0f7e0; font-weight: 500; }
+    .type-opt-icon { color: #797f82; display: flex; align-items: center; flex-shrink: 0; }
+    .type-opt-check { color: #98ca02; flex-shrink: 0; opacity: 0; margin-left: auto; }
+    .type-option.selected .type-opt-check { opacity: 1; }
+
+    /* ── Search dropdown ─────────────────────────────────── */
+    .search-dd { position: relative; flex: 1; min-width: 0; }
+    .search-dd-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .search-dd-placeholder { color: #b2b5b7; }
+
+    .search-dd-panel {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0; right: 0;
+      background: #fff;
+      border: 1px solid #dcdee0;
+      border-radius: 3px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      max-height: 270px;
+    }
+    .search-dd-input-wrap {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid #f0f1f2;
+      flex-shrink: 0;
+      gap: 6px;
+    }
+    .search-dd-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      color: #384045;
+      background: none;
+      min-width: 0;
+    }
+    .search-dd-input::placeholder { color: #b2b5b7; }
+    .search-dd-magnifier { color: #b2b5b7; flex-shrink: 0; display: flex; align-items: center; }
+    .search-dd-list { overflow-y: auto; flex: 1; }
+    .search-option {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      font-size: 14px;
+      color: #384045;
+      cursor: pointer;
+    }
+    .search-option:hover   { background: #f5f6f7; }
+    .search-option.focused { background: #f0f7e0; }
+    .search-option.selected { background: #f0f7e0; font-weight: 500; }
+    .search-empty {
+      padding: 14px 12px;
+      font-size: 13px;
+      color: #b2b5b7;
+      text-align: center;
+    }
+    .search-create-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #4a9fd4;
+      cursor: pointer;
+      border-top: 1px solid #f0f1f2;
+    }
+    .search-create-option:hover { background: #f0f7e0; }
+
+    /* ── Inline create actions ───────────────────────────── */
+    .create-inline-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px 10px;
+    }
+    .btn-tertiary {
+      background: none;
+      border: none;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 3px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #797f82;
+      cursor: pointer;
+    }
+    .btn-tertiary:hover { background: #f0f1f2; color: #384045; }
+    .btn-tertiary-primary { color: #98ca02; }
+    .btn-tertiary-primary:hover { background: #f0f7e0; color: #7aab00; }
+
+    /* ── "+ Create new asset" link ───────────────────────── */
+    .assign-create-link {
+      background: none;
+      border: none;
+      color: #4a9fd4;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .assign-create-link:hover { color: #2980b9; }
+    .assign-create-link.hidden { display: none; }
+
+    /* ── Inline create-asset panel ──────────────────────── */
+    .create-inline {
+      margin-left: 191px;
+      border: 1px solid #dcdee0;
+      border-radius: 3px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    /* "< Create new asset" header row */
+    .create-inline-header {
+      padding: 10px 16px 8px;
+      border-bottom: 1px solid #f0f1f2;
+    }
+    .create-back-btn {
+      background: none;
+      border: none;
+      color: #4a9fd4;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .create-back-btn:hover { color: #2980b9; }
+
+    /* field rows inside create panel */
+    .create-field-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      gap: 0;
+    }
+    .create-field-label {
+      width: 100px;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: #384045;
+      font-weight: 500;
+    }
+    .create-field-label .req { color: #e74c3c; margin-left: 1px; }
+    .create-field-row select,
+    .create-ref-input {
+      flex: 1;
+      height: 32px;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      padding: 0 10px;
+      font-size: 14px;
+      color: #384045;
+      background: #fff;
+      outline: none;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .create-field-row select:focus,
+    .create-ref-input:focus {
+      border-color: #98ca02;
+      box-shadow: 0 0 0 2px rgba(152,202,2,.15);
+    }
+    .create-ref-wrap { flex: 1; display: flex; flex-direction: column; }
+
+    /* conflict panel */
+    .conflict-panel {
+      margin: 0 16px 8px;
+      border: 1px solid #e8c840;
+      border-radius: 3px;
+      background: #fffdf0;
+      overflow: hidden;
+    }
+    .conflict-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #5a4a00;
+      border-bottom: 1px solid #e8c840;
+    }
+    .conflict-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #384045;
+      border-top: 1px solid #f5edb0;
+      gap: 10px;
+    }
+    .conflict-row:first-child { border-top: none; }
+    .conflict-row-icon { color: #8e9497; flex-shrink: 0; display: flex; align-items: center; }
+    .conflict-row-type { color: #797f82; font-size: 13px; width: 60px; flex-shrink: 0; }
+    .conflict-row-name { flex: 1; font-weight: 500; }
+    .conflict-assign-btn {
+      background: none;
+      border: none;
+      color: #4a9fd4;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .conflict-assign-btn:hover { color: #2980b9; }
+
+    /* action row */
+
+    /* ══════════════════════════════════════════════════════
+       MAP VIEW
+    ══════════════════════════════════════════════════════ */
+    #mapView {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: #1e2830;
+    }
+    /* Map header */
+    .mv-header {
+      height: 48px;
+      background: #2a3540;
+      border-bottom: 1px solid #1a252f;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px 0 14px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .mv-header-left { display: flex; align-items: center; gap: 14px; }
+    .mv-header-right { display: flex; align-items: center; gap: 6px; }
+    .mv-logo { display: flex; align-items: center; gap: 6px; }
+    .mv-logo-20 {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,.5);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 3px;
+      padding: 1px 4px;
+      line-height: 1.4;
+    }
+    .mv-hdr-icon-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,.6);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+    }
+    .mv-hdr-icon-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .mv-notif-wrap { position: relative; }
+    .mv-notif-badge {
+      position: absolute;
+      top: 1px; right: 1px;
+      background: #ff4141;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+    }
+    .mv-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .mv-user:hover { background: rgba(255,255,255,.08); }
+    .mv-user-avatar {
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mv-user-text { display: flex; flex-direction: column; }
+    .mv-user-name { font-size: 13px; font-weight: 500; color: #fff; line-height: 1.3; }
+    .mv-user-co   { font-size: 10px; color: rgba(255,255,255,.5); line-height: 1.3; }
+
+    /* Map body */
+    .mv-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* Left nav */
+    .mv-nav {
+      width: 210px;
+      flex-shrink: 0;
+      background: #2a3540;
+      border-right: 1px solid #1a252f;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .mv-nav-items { flex: 1; padding: 8px 0; }
+    .mv-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      font-size: 13.5px;
+      color: rgba(255,255,255,.65);
+      cursor: pointer;
+      white-space: nowrap;
+      position: relative;
+    }
+    .mv-nav-item:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.9); }
+    .mv-nav-item.active {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+    }
+    .mv-nav-icon { flex-shrink: 0; opacity: .7; }
+    .mv-nav-item.active .mv-nav-icon { opacity: 1; }
+    .mv-nav-badge {
+      margin-left: auto;
+      background: #ff4141;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+    .mv-nav-settings { cursor: pointer; }
+    .mv-nav-collapse {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: rgba(255,255,255,.4);
+      cursor: pointer;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .mv-nav-collapse:hover { color: rgba(255,255,255,.7); }
+
+    /* Map content area */
+    .mv-content { flex: 1; display: flex; position: relative; overflow: hidden; }
+
+    /* Vehicle list panel */
+    .mv-panel {
+      width: 300px;
+      flex-shrink: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 2;
+      box-shadow: 2px 0 8px rgba(0,0,0,.15);
+    }
+    .mv-panel-tabs {
+      display: flex;
+      border-bottom: 1px solid #e4e5e6;
+      padding: 0 12px;
+      gap: 0;
+    }
+    .mv-ptab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 11px 12px;
+      font-size: 13px;
+      color: #797f82;
+      cursor: pointer;
+      margin-bottom: -1px;
+    }
+    .mv-ptab.active { color: #384045; font-weight: 500; border-bottom-color: #98ca02; }
+    .mv-panel-head {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f1f2;
+      gap: 6px;
+    }
+    .mv-panel-title { font-size: 14px; font-weight: 500; color: #384045; flex: 1; }
+    .mv-panel-icon-btn {
+      background: none;
+      border: none;
+      color: #8e9497;
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+    }
+    .mv-panel-icon-btn:hover { background: #f0f1f2; color: #384045; }
+    .mv-stats {
+      display: flex;
+      border-bottom: 1px solid #e4e5e6;
+      padding: 0 4px;
+    }
+    .mv-stat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 4px 8px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .mv-stat.active { border-bottom-color: #98ca02; }
+    .mv-stat-val { font-size: 18px; font-weight: 400; color: #384045; line-height: 1.1; }
+    .mv-stat.active .mv-stat-val { color: #384045; }
+    .mv-stat-lbl { font-size: 11px; color: #797f82; }
+    .mv-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid #f0f1f2;
+    }
+    .mv-filter-btn {
+      background: none;
+      border: none;
+      color: #1087d2;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .mv-filter-desc { font-size: 12px; color: #797f82; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mv-filter-icon { background: none; border: none; color: #8e9497; cursor: pointer; padding: 0; display: flex; }
+    .mv-ble-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #fff8ec;
+      border-bottom: 1px solid #f5c96a;
+      font-size: 12.5px;
+      color: #7a5000;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+    .mv-ble-notice svg { flex-shrink: 0; margin-top: 2px; color: #c47d00; }
+    .mv-ble-notice-link { color: #c47d00; font-weight: 600; text-decoration: underline; }
+    .mv-ble-notice-link:hover { color: #9a5a00; }
+    .mv-vehicles { flex: 1; overflow-y: auto; }
+    .mv-vehicle {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f1f2;
+      cursor: pointer;
+    }
+    .mv-vehicle:hover { background: #f9fafb; }
+    .mv-veh-header {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 6px;
+    }
+    .mv-veh-icon {
+      width: 24px; height: 24px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .mv-veh-icon-trailer { background: #dcdee0; color: #384045; }
+    .mv-veh-icon-car     { background: #f25c3f; color: #fff; }
+    .mv-veh-icon-person  { background: #65b200; color: #fff; }
+    .mv-veh-icon-truck   { background: #dcdee0; color: #384045; }
+    .mv-veh-name { font-size: 13px; font-weight: 500; color: #384045; flex: 1; }
+    .mv-veh-speed {
+      font-size: 11px;
+      background: #f0f1f2;
+      color: #797f82;
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+    .mv-speed-active { background: #e8f5e0; color: #4a8a00; }
+    .mv-veh-status {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .mv-veh-status.stopped  { background: #c8cdd0; }
+    .mv-veh-status.gray     { background: #c8cdd0; }
+    .mv-veh-status.driving  { background: #65b200; }
+    .mv-veh-detail {
+      display: flex;
+      gap: 8px;
+      font-size: 11.5px;
+      margin-bottom: 2px;
+    }
+    .mv-veh-detail > span:first-child { color: #797f82; width: 80px; flex-shrink: 0; }
+    .mv-veh-detail > span:last-child  { color: #384045; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Map area */
+    .mv-map { flex: 1; position: relative; overflow: hidden; }
+    .mv-map-tile {
+      position: absolute;
+      inset: 0;
+      background: #3d5a3e;
+      background-image:
+        radial-gradient(ellipse at 30% 20%, #4a6b45 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, #354f36 0%, transparent 40%),
+        radial-gradient(ellipse at 50% 80%, #3a5540 0%, transparent 45%),
+        radial-gradient(ellipse at 80% 30%, #436244 0%, transparent 40%);
+    }
+    /* Water bodies */
+    .mv-water { position: absolute; background: #4a7fa8; }
+    .mv-north-sea {
+      left: 0; top: 0; width: 44%; height: 38%;
+      clip-path: polygon(0 0, 100% 0, 100% 60%, 75% 100%, 50% 80%, 30% 100%, 0 70%);
+      opacity: .85;
+    }
+    .mv-baltic-sea {
+      left: 52%; top: 0; width: 28%; height: 28%;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 30% 100%, 0 50%);
+      opacity: .8;
+    }
+    .mv-atlantic { left: 0; top: 0; width: 10%; height: 100%; opacity: .7; }
+    .mv-med { left: 0; bottom: 0; width: 55%; height: 10%; opacity: .75; }
+    /* Country/city labels */
+    .mv-country {
+      position: absolute;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,.75);
+      text-shadow: 0 1px 3px rgba(0,0,0,.5);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .mv-city {
+      position: absolute;
+      font-size: 11px;
+      color: rgba(255,255,255,.7);
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    /* Markers */
+    .mv-marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,.8);
+      z-index: 5;
+      cursor: pointer;
+    }
+    .mv-marker-green { width: 28px; height: 28px; background: #65b200; }
+    .mv-marker-red   { width: 22px; height: 22px; background: #e03020; }
+    .mv-marker-blue  { width: 14px; height: 14px; background: #1087d2; border-width: 2px; }
+    .mv-marker-house::after {
+      content: '';
+      display: block;
+      width: 10px; height: 10px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E") center/contain no-repeat;
+    }
+    /* Zoom controls */
+    .mv-zoom {
+      position: absolute;
+      top: 12px; left: 12px;
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+    .mv-zoom-btn {
+      width: 28px; height: 28px;
+      background: #fff;
+      border: 1px solid #c8cdd0;
+      font-size: 16px;
+      font-weight: 400;
+      color: #384045;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .mv-zoom-btn:first-child { border-radius: 3px 3px 0 0; border-bottom: none; }
+    .mv-zoom-btn:last-child  { border-radius: 0 0 3px 3px; }
+    .mv-zoom-btn:hover { background: #f5f6f7; }
+    /* Map tools (left vertical) */
+    .mv-tools {
+      position: absolute;
+      top: 80px; left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      z-index: 10;
+    }
+    .mv-tool-btn {
+      width: 28px; height: 28px;
+      background: #fff;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      color: #797f82;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mv-tool-btn:hover { background: #f5f6f7; color: #384045; }
+    /* Search bar */
+    .mv-map-search {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 220px;
+      height: 32px;
+      background: #fff;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 6px;
+      z-index: 10;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .mv-search-input {
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: #384045;
+      flex: 1;
+      background: transparent;
+    }
+    .mv-search-input::placeholder { color: #b2b5b7; }
+    /* Right tools */
+    .mv-right-tools {
+      position: absolute;
+      top: 12px; right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      z-index: 10;
+    }
+    .mv-rtool-btn {
+      width: 28px; height: 28px;
+      background: #fff;
+      border: 1px solid #c8cdd0;
+      border-radius: 3px;
+      color: #797f82;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mv-rtool-btn:hover { background: #f5f6f7; color: #384045; }
+    .mv-rtool-active { color: #98ca02; }
+    /* Chat button */
+    .mv-chat-btn {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      width: 44px; height: 44px;
+      background: #65b200;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,.3);
+      z-index: 10;
+    }
+    .mv-chat-btn:hover { background: #5aa000; }
+
+    /* ══════════════════════════════════════════════════════
+       ASSET PROFILE VIEW
+    ══════════════════════════════════════════════════════ */
+    .asset-link {
+      color: #1087d2;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .asset-link:hover { text-decoration: underline; }
+    .assign-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #9a6200;
+      background: #fff8ec;
+      border: 1px dashed #e8a800;
+      border-radius: 3px;
+      padding: 4px 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, border-color .15s;
+    }
+    .assign-cta:hover {
+      background: #fef0d0;
+      border-color: #c47d00;
+    }
+
+    /* nav row */
+    .prof-nav-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0 12px;
+    }
+    .back-link {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: none;
+      color: #1087d2;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .prof-edit-link {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: #1087d2;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .prof-edit-link:hover { text-decoration: underline; }
+
+    /* card */
+    .prof-card { padding: 0; overflow: hidden; }
+
+    /* header section */
+    .prof-header-section {
+      display: flex;
+      gap: 32px;
+      padding: 24px;
+      border-bottom: 1px solid #e4e5e6;
+    }
+    .prof-images {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .prof-photo-box, .prof-map-box {
+      width: 200px;
+      height: 200px;
+      border: 1px solid #e4e5e6;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .prof-photo-label {
+      font-size: 12px;
+      color: #384045;
+    }
+    .prof-map-box {
+      position: relative;
+      background: #e8f0e8;
+    }
+    .prof-map-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(#c8d8c8 1px, transparent 1px),
+        linear-gradient(90deg, #c8d8c8 1px, transparent 1px);
+      background-size: 24px 24px;
+      opacity: .5;
+    }
+    .prof-map-road-h {
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      height: 10px;
+      background: #fff;
+      transform: translateY(-50%);
+    }
+    .prof-map-road-v {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 38%;
+      width: 8px;
+      background: #fff;
+    }
+    .prof-map-marker {
+      position: absolute;
+      top: 36%;
+      left: 34%;
+      background: #65b200;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+      z-index: 1;
+    }
+    .prof-map-marker::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #65b200;
+      border-bottom: none;
+    }
+
+    /* details panel */
+    .prof-info-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-top: 4px;
+    }
+    .prof-asset-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prof-asset-title h2 {
+      font-size: 30px;
+      font-weight: 400;
+      color: #384045;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .prof-type-icon-lg {
+      color: #797f82;
+      flex-shrink: 0;
+    }
+    .prof-detail-grid {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 12px 48px;
+      align-items: baseline;
+    }
+    .prof-detail-label {
+      font-size: 14px;
+      color: #797f82;
+    }
+    .prof-detail-val {
+      font-size: 14px;
+      color: #384045;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .prof-detail-link {
+      font-size: 14px;
+      color: #1087d2;
+      text-decoration: none;
+    }
+    .prof-detail-link:hover { text-decoration: underline; }
+    .muted-sm { font-size: 13px; color: #797f82; }
+
+    /* info blocks */
+    .prof-blocks-row {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid #e4e5e6;
+    }
+    .info-block-card {
+      flex: 1;
+      min-height: 83px;
+      padding: 14px 20px 12px;
+      border-right: 1px solid #e4e5e6;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .info-block-card:last-child { border-right: none; }
+    .ibc-label {
+      font-size: 12px;
+      color: #797f82;
+      margin-bottom: 2px;
+    }
+    .ibc-value {
+      font-size: 22px;
+      font-weight: 400;
+      color: #384045;
+      line-height: 1;
+    }
+    .ibc-footer {
+      font-size: 12px;
+      color: #797f82;
+    }
+    .util-badge {
+      display: inline-block;
+      background: #f23e44;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      line-height: 1.2;
+    }
+
+    /* tabs */
+    .prof-tabs-bar {
+      display: flex;
+      border-bottom: 1px solid #e4e5e6;
+      padding: 0 24px;
+      gap: 0;
+    }
+    .prof-tab {
+      padding: 14px 20px;
+      font-size: 14px;
+      color: #797f82;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      white-space: nowrap;
+    }
+    .prof-tab:hover { color: #384045; }
+    .prof-tab.active {
+      color: #384045;
+      font-weight: 500;
+      border-bottom-color: #98ca02;
+    }
+
+    /* specification tab */
+    .prof-tab-panel { padding: 24px; }
+    .spec-grid { display: flex; flex-direction: column; }
+    .spec-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f1f2;
+      gap: 0;
+    }
+    .spec-row:last-child { border-bottom: none; }
+    .spec-label {
+      width: 200px;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: #797f82;
+    }
+    .spec-val {
+      font-size: 14px;
+      color: #384045;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ MAP VIEW (entry point) ══════════════════ -->
+<div id="mapView">
+
+  <!-- Map header -->
+  <header class="mv-header">
+    <div class="mv-header-left">
+      <!-- Mapon 20 logo -->
+      <div class="mv-logo">
+        <svg width="90" height="26" viewBox="0 0 108 28" fill="none">
+          <text x="0" y="21" font-family="Arial Black,Arial,sans-serif" font-size="20" font-weight="900" fill="#fff">map</text>
+          <circle cx="77.5" cy="15" r="9" stroke="#fff" stroke-width="2.2" fill="none"/>
+          <circle cx="77.5" cy="4" r="3" fill="#98ca02"/>
+          <line x1="77.5" y1="7" x2="77.5" y2="6.3" stroke="#98ca02" stroke-width="2"/>
+          <text x="89" y="21" font-family="Arial Black,Arial,sans-serif" font-size="20" font-weight="900" fill="#fff">n</text>
+        </svg>
+        <span class="mv-logo-20">20</span>
+      </div>
+      <button class="mv-hdr-icon-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+    <div class="mv-header-right">
+      <button class="mv-hdr-icon-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button class="mv-hdr-icon-btn mv-notif-wrap">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="mv-notif-badge">19</span>
+      </button>
+      <div class="mv-user">
+        <div class="mv-user-avatar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,.7)"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="mv-user-text">
+          <span class="mv-user-name">Mapon Admin</span>
+          <span class="mv-user-co">AS "Mapon"</span>
+        </div>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="rgba(255,255,255,.5)"><path d="M1 1l4 4 4-4"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- Map body -->
+  <div class="mv-body">
+
+    <!-- Left navigation -->
+    <nav class="mv-nav">
+      <div class="mv-nav-items">
+        <div class="mv-nav-item active">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          Map
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Reports
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Fleet Management
+          <span class="mv-nav-badge">14</span>
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Driver Management
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Cameras
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 22V8l3-5h6l3 5v14H3z"/><line x1="3" y1="11" x2="15" y2="11"/></svg>
+          Fuel
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Alerts
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Billing &amp; assets
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M6 16V9a2 2 0 0 1 2-2h9"/></svg>
+          Route planning
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Forms
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Messaging
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          Carsharing
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Tachograph solution
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Marketplace
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          Carsharing
+        </div>
+        <div class="mv-nav-item mv-nav-settings" id="mvSettingsBtn">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Integrations
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+          Help center
+        </div>
+        <div class="mv-nav-item">
+          <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Mapon components
+        </div>
+      </div>
+      <div class="mv-nav-collapse">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6"/></svg>
+        Collapse menu
+      </div>
+    </nav>
+
+    <!-- Map content area -->
+    <div class="mv-content">
+
+      <!-- Vehicle list panel -->
+      <div class="mv-panel">
+        <div class="mv-panel-tabs">
+          <button class="mv-ptab active">Live map</button>
+          <button class="mv-ptab">Tasks</button>
+          <button class="mv-ptab">History</button>
+        </div>
+        <div class="mv-panel-head">
+          <span class="mv-panel-title">Favourite</span>
+          <button class="mv-panel-icon-btn"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg></button>
+          <button class="mv-panel-icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        </div>
+        <div class="mv-stats">
+          <div class="mv-stat active"><span class="mv-stat-val">4</span><span class="mv-stat-lbl">All</span></div>
+          <div class="mv-stat"><span class="mv-stat-val">1</span><span class="mv-stat-lbl">Stopped</span></div>
+          <div class="mv-stat"><span class="mv-stat-val">1</span><span class="mv-stat-lbl">Driving</span></div>
+          <div class="mv-stat"><span class="mv-stat-val">0</span><span class="mv-stat-lbl">Idling</span></div>
+          <div class="mv-stat"><span class="mv-stat-val">2</span><span class="mv-stat-lbl">No data</span></div>
+        </div>
+        <div class="mv-filter-bar">
+          <button class="mv-filter-btn">Filter</button>
+          <span class="mv-filter-desc">All countries, All types, All vehicles</span>
+          <button class="mv-filter-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg></button>
+        </div>
+        <div class="mv-ble-notice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>10 BLE tags are not tracking anything. <a class="mv-ble-notice-link" id="mvGoToBle" href="#">Go to BLE tag settings →</a></span>
+        </div>
+
+        <div class="mv-vehicles">
+
+          <!-- Vehicle 1 -->
+          <div class="mv-vehicle">
+            <div class="mv-veh-header">
+              <div class="mv-veh-icon mv-veh-icon-trailer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="5" width="18" height="11" rx="1"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><line x1="19" y1="11" x2="23" y2="11"/></svg>
+              </div>
+              <span class="mv-veh-name">1st un long ..</span>
+              <span class="mv-veh-speed">0 km/h</span>
+              <span class="mv-veh-status stopped"></span>
+              <span class="mv-veh-status gray"></span>
+              <svg class="mv-veh-alert" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff4141" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="mv-veh-detail"><span>Groups</span><span>TTTTT, TTTTT, A-1-Child-1-grou…</span></div>
+            <div class="mv-veh-detail"><span>Icon text:</span><span>1st un long name trailer</span></div>
+            <div class="mv-veh-detail"><span>Make/Model:</span><span>Test virtual unit</span></div>
+            <div class="mv-veh-detail"><span>Vehicle:</span><span>140X24H</span></div>
+            <div class="mv-veh-detail"><span>Object:</span><span>Labais</span></div>
+            <div class="mv-veh-detail"><span>test_sort:</span><span>d</span></div>
+          </div>
+
+          <!-- Vehicle 2 -->
+          <div class="mv-vehicle">
+            <div class="mv-veh-header">
+              <div class="mv-veh-icon mv-veh-icon-car">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </div>
+              <span class="mv-veh-name">car1</span>
+              <span class="mv-veh-speed">0 km/h</span>
+              <span class="mv-veh-status gray"></span>
+              <span class="mv-veh-status gray"></span>
+              <svg class="mv-veh-alert" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff4141" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="mv-veh-detail"><span>Groups</span><span>All vehicles (group), testa gr…</span></div>
+            <div class="mv-veh-detail"><span>Icon text:</span><span>car1</span></div>
+            <div class="mv-veh-detail"><span>Make/Model:</span><span>car 1</span></div>
+            <div class="mv-veh-detail"><span>Object:</span><span>Mobile Automation</span></div>
+          </div>
+
+          <!-- Vehicle 3 -->
+          <div class="mv-vehicle">
+            <div class="mv-veh-header">
+              <div class="mv-veh-icon mv-veh-icon-person">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <span class="mv-veh-name">MaksTest</span>
+              <span class="mv-veh-speed">0 km/h</span>
+              <span class="mv-veh-status gray"></span>
+              <span class="mv-veh-status gray"></span>
+              <svg class="mv-veh-alert" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff4141" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="mv-veh-detail"><span>Icon text:</span><span>MaksTest</span></div>
+            <div class="mv-veh-detail"><span>Make/Model:</span><span>Holyiot</span></div>
+            <div class="mv-veh-detail"><span>Object:</span><span>Labais</span></div>
+          </div>
+
+          <!-- Vehicle 4 -->
+          <div class="mv-vehicle">
+            <div class="mv-veh-header">
+              <div class="mv-veh-icon mv-veh-icon-truck">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </div>
+              <span class="mv-veh-name">24</span>
+              <span class="mv-veh-speed mv-speed-active">47 km/h</span>
+              <span class="mv-veh-status driving"></span>
+              <span class="mv-veh-status driving"></span>
+              <svg class="mv-veh-alert" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff4141" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="mv-veh-detail"><span>Groups</span><span>123321, GQA_50, GQA_51, QA_SBV…</span></div>
+            <div class="mv-veh-detail"><span>Icon text:</span><span>24</span></div>
+            <div class="mv-veh-detail"><span>Make/Model:</span><span>AG 19220</span></div>
+            <div class="mv-veh-detail"><span>Trailer:</span><span>12345</span></div>
+            <div class="mv-veh-detail"><span>Object:</span><span>Name</span></div>
+          </div>
+
+        </div><!-- /mv-vehicles -->
+      </div><!-- /mv-panel -->
+
+      <!-- Map background -->
+      <div class="mv-map">
+
+        <!-- Search bar -->
+        <div class="mv-map-search">
+          <input type="text" placeholder="Search address" class="mv-search-input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#797f82" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+
+        <!-- Zoom controls -->
+        <div class="mv-zoom">
+          <button class="mv-zoom-btn">+</button>
+          <button class="mv-zoom-btn">−</button>
+        </div>
+
+        <!-- Map tools -->
+        <div class="mv-tools">
+          <button class="mv-tool-btn mv-tool-person">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>
+          <button class="mv-tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+          <button class="mv-tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button class="mv-tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></button>
+          <button class="mv-tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></button>
+        </div>
+
+        <!-- Map tile (satellite Europe) -->
+        <div class="mv-map-tile">
+          <!-- Water bodies -->
+          <div class="mv-water mv-north-sea"></div>
+          <div class="mv-water mv-baltic-sea"></div>
+          <div class="mv-water mv-atlantic"></div>
+          <div class="mv-water mv-med"></div>
+          <!-- Country labels -->
+          <span class="mv-country" style="left:57%;top:8%">Sweden</span>
+          <span class="mv-country" style="left:51%;top:22%">Denmark</span>
+          <span class="mv-country" style="left:61%;top:22%">Sjælland</span>
+          <span class="mv-country" style="left:56%;top:33%">Germany</span>
+          <span class="mv-country" style="left:48%;top:48%">Netherlands</span>
+          <span class="mv-country" style="left:47%;top:54%">Belgium</span>
+          <span class="mv-country" style="left:40%;top:61%">France</span>
+          <span class="mv-country" style="left:45%;top:72%">Switzerland</span>
+          <span class="mv-country" style="left:57%;top:72%">Austria</span>
+          <span class="mv-country" style="left:65%;top:40%">Poland</span>
+          <span class="mv-country" style="left:71%;top:55%">Czechia</span>
+          <span class="mv-country" style="left:72%;top:65%">Slovakia</span>
+          <span class="mv-country" style="left:72%;top:30%">Lithuania</span>
+          <span class="mv-country" style="left:77%;top:23%">Latvia</span>
+          <span class="mv-country" style="left:76%;top:46%">Belarus</span>
+          <span class="mv-country" style="left:70%;top:76%">Hungary</span>
+          <span class="mv-country" style="left:60%;top:83%">Slovenia</span>
+          <span class="mv-country" style="left:80%;top:83%">Romania</span>
+          <span class="mv-country" style="left:82%;top:58%">Ukraine</span>
+          <span class="mv-country" style="left:83%;top:42%">Belarus</span>
+          <!-- City labels -->
+          <span class="mv-city" style="left:53%;top:16%">Gothenburg</span>
+          <span class="mv-city" style="left:62%;top:14%">Jönköping</span>
+          <span class="mv-city" style="left:56%;top:26%">Copenhagen</span>
+          <span class="mv-city" style="left:52%;top:37%">Hamburg</span>
+          <span class="mv-city" style="left:60%;top:39%">Berlin</span>
+          <span class="mv-city" style="left:44%;top:44%">Amsterdam</span>
+          <span class="mv-city" style="left:46%;top:60%">Brussels</span>
+          <span class="mv-city" style="left:42%;top:63%">Liège</span>
+          <span class="mv-city" style="left:40%;top:68%">Luxembourg</span>
+          <span class="mv-city" style="left:43%;top:74%">Strasbourg</span>
+          <span class="mv-city" style="left:44%;top:78%">Basel</span>
+          <span class="mv-city" style="left:44%;top:83%">Zürich</span>
+          <span class="mv-city" style="left:49%;top:86%">Lausanne</span>
+          <span class="mv-city" style="left:56%;top:45%">Hannover</span>
+          <span class="mv-city" style="left:61%;top:50%">Leipzig</span>
+          <span class="mv-city" style="left:66%;top:34%">Gdańsk</span>
+          <span class="mv-city" style="left:70%;top:43%">Warsaw</span>
+          <span class="mv-city" style="left:63%;top:60%">Prague</span>
+          <span class="mv-city" style="left:81%;top:18%">Rīga</span>
+          <span class="mv-city" style="left:56%;top:8%">Hirtshals</span>
+          <span class="mv-city" style="left:55%;top:12%">Aalborg</span>
+          <span class="mv-city" style="left:48%;top:29%">Flensburg</span>
+          <!-- Vehicle markers -->
+          <div class="mv-marker mv-marker-green" style="left:80%;top:21%">3</div>
+          <div class="mv-marker mv-marker-red mv-marker-house" style="left:51%;top:38%"></div>
+          <div class="mv-marker mv-marker-blue" style="left:38%;top:58%"></div>
+          <div class="mv-marker mv-marker-red" style="left:40%;top:69%"></div>
+        </div>
+
+        <!-- Right toolbar -->
+        <div class="mv-right-tools">
+          <button class="mv-rtool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h8m-8 6h16"/></svg></button>
+          <button class="mv-rtool-btn mv-rtool-active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+          <button class="mv-rtool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="mv-rtool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button>
+          <button class="mv-rtool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></button>
+          <button class="mv-rtool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></button>
+        </div>
+
+        <!-- Chat button -->
+        <button class="mv-chat-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+
+      </div><!-- /mv-map -->
+    </div><!-- /mv-content -->
+  </div><!-- /mv-body -->
+</div><!-- /mapView -->
+
+<!-- ══════════════════ BLE / SETTINGS VIEW ══════════════════ -->
+<div id="appView" style="display:none">
+<header class="mv-header">
+  <div class="mv-header-left">
+    <div class="mv-logo">
+      <svg width="90" height="26" viewBox="0 0 108 28" fill="none">
+        <text x="0" y="21" font-family="Arial Black,Arial,sans-serif" font-size="20" font-weight="900" fill="#fff">map</text>
+        <circle cx="77.5" cy="15" r="9" stroke="#fff" stroke-width="2.2" fill="none"/>
+        <circle cx="77.5" cy="4" r="3" fill="#98ca02"/>
+        <line x1="77.5" y1="7" x2="77.5" y2="6.3" stroke="#98ca02" stroke-width="2"/>
+        <text x="89" y="21" font-family="Arial Black,Arial,sans-serif" font-size="20" font-weight="900" fill="#fff">n</text>
+      </svg>
+      <span class="mv-logo-20">20</span>
+    </div>
+    <button class="mv-hdr-icon-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+  <div class="mv-header-right">
+    <button class="mv-hdr-icon-btn">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <button class="mv-hdr-icon-btn mv-notif-wrap">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="mv-notif-badge">19</span>
+    </button>
+    <div class="mv-user">
+      <div class="mv-user-avatar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,.7)"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div class="mv-user-text">
+        <span class="mv-user-name">Mapon Admin</span>
+        <span class="mv-user-co">AS "Mapon"</span>
+      </div>
+      <svg width="10" height="6" viewBox="0 0 10 6" fill="rgba(255,255,255,.5)"><path d="M1 1l4 4 4-4"/></svg>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════ APP BODY ══════════════════ -->
+<div class="app-body">
+
+  <!-- ── PRIMARY NAV (matches map view) ── -->
+  <nav class="mv-nav app-mv-nav">
+    <div class="mv-nav-items">
+      <div class="mv-nav-item" id="appNavMapBtn">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Map
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Reports
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Fleet Management
+        <span class="mv-nav-badge">14</span>
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Driver Management
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Cameras
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 22V8l3-5h6l3 5v14H3z"/><line x1="3" y1="11" x2="15" y2="11"/></svg>
+        Fuel
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alerts
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Billing &amp; assets
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M6 16V9a2 2 0 0 1 2-2h9"/></svg>
+        Route planning
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Messaging
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Tachograph solution
+      </div>
+      <div class="mv-nav-item active">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </div>
+      <div class="mv-nav-item">
+        <svg class="mv-nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+        Help center
+      </div>
+    </div>
+    <div class="mv-nav-collapse">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6"/></svg>
+      Collapse menu
+    </div>
+  </nav>
+
+  <!-- ── ICON SIDEBAR (hidden — replaced by mv-nav) ── -->
+  <nav class="icon-nav" style="display:none">
+    <div class="icon-nav-items">
+
+      <!-- Map -->
+      <div class="icon-btn" title="Map">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/>
+          <line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+      </div>
+
+      <!-- Dashboard -->
+      <div class="icon-btn" title="Dashboard">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+
+      <!-- Route planning -->
+      <div class="icon-btn" title="Route planning">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="19" r="3"/>
+          <circle cx="18" cy="5" r="3"/>
+          <path d="M6 16V9a2 2 0 0 1 2-2h9"/>
+        </svg>
+      </div>
+
+      <!-- Reports -->
+      <div class="icon-btn" title="Reports">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </div>
+
+      <!-- Alerts (badge) -->
+      <div class="icon-btn" title="Alerts">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="icon-nav-badge">12</span>
+      </div>
+
+      <!-- Chat -->
+      <div class="icon-btn" title="Chat">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+
+      <!-- Fuel -->
+      <div class="icon-btn" title="Fuel">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 22V8l3-5h6l3 5v14H3z"/>
+          <line x1="3" y1="11" x2="15" y2="11"/>
+          <path d="M15 9l2 2v8a1 1 0 0 0 2 0v-5l2-2"/>
+        </svg>
+      </div>
+
+      <!-- Tasks -->
+      <div class="icon-btn" title="Tasks">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+      </div>
+
+      <!-- Vehicles -->
+      <div class="icon-btn" title="Fleet">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="3" width="15" height="13" rx="1"/>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/>
+          <circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+      </div>
+
+      <!-- Users -->
+      <div class="icon-btn" title="Users">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+
+      <!-- BLE / Form – ACTIVE -->
+      <div class="icon-btn hi" title="BLE devices">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="12" x2="12" y2="18"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+      </div>
+
+      <!-- Web -->
+      <div class="icon-btn" title="Web">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </div>
+
+      <!-- Settings -->
+      <div class="icon-btn" title="Settings">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+
+      <!-- ELD -->
+      <div class="icon-btn" title="ELD">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </div>
+
+      <!-- Tacho -->
+      <div class="icon-btn" title="Tachograph">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+
+    </div><!-- /icon-nav-items -->
+
+    <!-- collapse button -->
+    <div class="icon-nav-foot" title="Collapse">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M2 5l5 4 5-4"/>
+        <path d="M2 2l5 4 5-4"/>
+      </svg>
+    </div>
+  </nav><!-- /icon-nav -->
+
+
+  <!-- ── TEXT SIDEBAR ── -->
+  <nav class="text-nav">
+    <div class="nav-item">Organization</div>
+    <div class="nav-item">Users</div>
+    <div class="nav-item">Two factor auth</div>
+    <div class="nav-item">Depots</div>
+    <div class="nav-item">Objects</div>
+    <div class="nav-item">Object groups</div>
+    <div class="nav-item">Route groups</div>
+    <div class="nav-item">Projects</div>
+    <div class="nav-item">Fuel cards</div>
+    <div class="nav-separator"></div>
+    <div class="nav-item header">Fleet</div>
+    <div class="nav-item">Vehicle groups</div>
+    <div class="nav-item">Vehicle relays</div>
+    <div class="nav-item">Interlock settings</div>
+    <div class="nav-item">iButtons sync</div>
+    <div class="nav-item active">BLE devices settings</div>
+    <div class="nav-item">RFID Containers</div>
+    <div class="nav-item">RFID</div>
+  </nav><!-- /text-nav -->
+
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+  <!-- ══ BLE TAGS VIEW ══ -->
+  <div id="bleView">
+
+    <!-- page title bar -->
+    <div class="page-title-bar">
+      <h1 class="page-title">BLE tags</h1>
+      <div class="page-actions">
+        <button class="btn btn-green">IMPORT</button>
+        <button class="btn btn-green">ADD TAG</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- info banner -->
+      <div class="info-banner" id="infoBanner">
+        <span>There will be an additional charge for activating a new tag. For more information call customer support</span>
+        <button class="banner-close" onclick="document.getElementById('infoBanner').style.display='none'">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- card -->
+      <div class="card" style="margin-top:16px;">
+
+        <!-- tabs -->
+        <div class="tabs">
+          <div class="tab active" onclick="setTab(this)">Saved</div>
+          <div class="tab" onclick="setTab(this)">Scanned</div>
+        </div>
+
+        <!-- filter bar -->
+        <div class="filter-bar">
+          <div class="filter-field">
+            <label class="filter-label">Status</label>
+            <select class="filter-select">
+              <option value="">-</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+          </div>
+          <div class="search-wrap">
+            <input type="text" class="search-input" placeholder="Search">
+            <span class="search-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- table -->
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Serial number</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Assigned to</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Asset Type</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Last received data</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Last address</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Scanned</span></th>
+                <th><span class="sort"><span class="sort-arrow">↓</span>Tracking status</span></th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- pagination -->
+        <div class="pag-bar">
+          <div class="rows-label">
+            Number of rows
+            <select class="rows-select">
+              <option>50</option>
+              <option>25</option>
+              <option>100</option>
+            </select>
+          </div>
+          <div class="pagination">
+            <button class="pg-btn active">1</button>
+            <button class="pg-btn">2</button>
+            <button class="pg-btn" style="letter-spacing:1px">…</button>
+            <button class="pg-btn">9</button>
+            <button class="pg-btn">10</button>
+            <button class="pg-btn">›</button>
+          </div>
+        </div>
+
+      </div><!-- /card -->
+    </div><!-- /page-body -->
+  </div><!-- /bleView -->
+
+  <!-- ══ ASSET PROFILE VIEW ══ -->
+  <div id="profileView" style="display:none">
+
+    <div class="prof-nav-row">
+      <button class="back-link" id="profileBackBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to list
+      </button>
+      <button class="prof-edit-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+    </div>
+
+    <div class="page-title-bar" style="padding-bottom:16px">
+      <h1 class="page-title">Asset Profile</h1>
+      <button class="btn" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid #c8cdd0;background:#fff;border-radius:3px;cursor:pointer;color:#797f82;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+
+    <div class="card prof-card" style="margin-bottom:32px;">
+
+      <!-- header: images + details -->
+      <div class="prof-header-section">
+        <div class="prof-images">
+          <!-- photo placeholder -->
+          <div class="prof-photo-box">
+            <span id="profPhotoIcon" style="color:#b2b5b7"></span>
+            <span class="prof-photo-label">Upload photo</span>
+          </div>
+          <!-- map placeholder -->
+          <div class="prof-map-box">
+            <div class="prof-map-grid"></div>
+            <div class="prof-map-road-h"></div>
+            <div class="prof-map-road-v"></div>
+            <div class="prof-map-marker" id="profMapMarker"></div>
+          </div>
+        </div>
+
+        <div class="prof-info-panel">
+          <div class="prof-asset-title">
+            <span class="prof-type-icon-lg" id="profTitleIcon"></span>
+            <h2 id="profName"></h2>
+          </div>
+          <div class="prof-detail-grid">
+            <span class="prof-detail-label">Location</span>
+            <a class="prof-detail-link" href="#">Riga, Latvia, Liepajas iela 12, LV-2012</a>
+            <span class="prof-detail-label">Last update</span>
+            <span class="prof-detail-val">February 9th, 2026 16:38 <span class="muted-sm">2 minutes ago</span></span>
+            <span class="prof-detail-label">Current status</span>
+            <span class="prof-detail-val">Operating</span>
+            <span class="prof-detail-label">Operating hours</span>
+            <span class="prof-detail-val">1504 h <span class="muted-sm">This month</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- info blocks row 1 -->
+      <div class="prof-blocks-row">
+        <div class="info-block-card">
+          <div class="ibc-label">Service reminders</div>
+          <div class="ibc-value">0</div>
+          <div class="ibc-footer">Due soon</div>
+        </div>
+        <div class="info-block-card">
+          <div class="ibc-label">Total repair costs</div>
+          <div class="ibc-value">0 Eur</div>
+          <div class="ibc-footer">—</div>
+        </div>
+        <div class="info-block-card">
+          <div class="ibc-label">Documents &amp; Licenses</div>
+          <div class="ibc-value">0</div>
+          <div class="ibc-footer">Due soon</div>
+        </div>
+        <div class="info-block-card">
+          <div class="ibc-label">Distance traveled this month</div>
+          <div class="ibc-value">0 km</div>
+          <div class="ibc-footer">0 km last month</div>
+        </div>
+      </div>
+
+      <!-- info blocks row 2 -->
+      <div class="prof-blocks-row">
+        <div class="info-block-card">
+          <div class="ibc-label">Active hours this month</div>
+          <div class="ibc-value">0</div>
+          <div class="ibc-footer">— last month</div>
+        </div>
+        <div class="info-block-card">
+          <div class="ibc-label">Fuel consumed this month</div>
+          <div class="ibc-value">0 L</div>
+          <div class="ibc-footer">— last month</div>
+        </div>
+        <div class="info-block-card" style="flex:2">
+          <div class="ibc-label">Utilization score</div>
+          <div style="margin-top:4px"><span class="util-badge">0%</span></div>
+          <div class="ibc-footer" style="margin-top:6px">this month</div>
+        </div>
+      </div>
+
+      <!-- tab bar -->
+      <div class="prof-tabs-bar">
+        <div class="prof-tab active" data-panel="spec">Specification</div>
+        <div class="prof-tab" data-panel="service">Service reminders</div>
+        <div class="prof-tab" data-panel="repair">Repair costs</div>
+        <div class="prof-tab" data-panel="docs">Documents &amp; Licenses</div>
+        <div class="prof-tab" data-panel="damage">Historical damage</div>
+      </div>
+
+      <!-- specification panel -->
+      <div class="prof-tab-panel" id="profPanelSpec">
+        <div class="spec-grid">
+          <div class="spec-row">
+            <span class="spec-label">Type</span>
+            <span class="spec-val" id="specType"></span>
+          </div>
+          <div class="spec-row">
+            <span class="spec-label">Reference</span>
+            <span class="spec-val" id="specRef"></span>
+          </div>
+          <div class="spec-row">
+            <span class="spec-label">Status</span>
+            <span class="spec-val">Active</span>
+          </div>
+          <div class="spec-row">
+            <span class="spec-label">Created</span>
+            <span class="spec-val">January 1st, 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="prof-tab-panel" id="profPanelService" style="display:none"><p style="color:#797f82;font-size:14px;">No service reminders.</p></div>
+      <div class="prof-tab-panel" id="profPanelRepair"  style="display:none"><p style="color:#797f82;font-size:14px;">No repair costs recorded.</p></div>
+      <div class="prof-tab-panel" id="profPanelDocs"    style="display:none"><p style="color:#797f82;font-size:14px;">No documents or licenses.</p></div>
+      <div class="prof-tab-panel" id="profPanelDamage"  style="display:none"><p style="color:#797f82;font-size:14px;">No historical damage recorded.</p></div>
+
+    </div><!-- /prof-card -->
+  </div><!-- /profileView -->
+
+  </main>
+
+</div><!-- /app-body -->
+</div><!-- /appView -->
+
+<!-- ══════════════════ EDIT MODAL ══════════════════ -->
+<div class="modal-overlay" id="editOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal" id="editModal">
+
+    <!-- header -->
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTitle">Edit</h2>
+      <button class="modal-close" id="modalCloseBtn" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="2" y1="2" x2="14" y2="14"/>
+          <line x1="14" y1="2" x2="2" y2="14"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- body -->
+    <div class="modal-body">
+
+      <div class="field-row">
+        <span class="field-label">Serial number</span>
+        <input id="fieldSerial" class="field-input readonly" type="text" readonly>
+      </div>
+
+
+      <!-- Assign to -->
+      <div class="assign-row" id="assignRow">
+        <span class="field-label">Assign to</span>
+
+        <div class="assign-fields">
+
+          <div class="assign-dropdowns">
+
+            <!-- Type dropdown -->
+            <div class="type-dd" id="typeDd">
+              <div class="dd-trigger" id="typeDdTrigger" tabindex="0">
+                <span class="type-dd-icon" id="typeDdIcon"></span>
+                <span class="type-dd-text" id="typeDdText">Box</span>
+                <span class="dd-chevron"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l4 4 4-4"/></svg></span>
+              </div>
+              <div class="type-dd-panel" id="typeDdPanel" style="display:none"></div>
+            </div>
+
+            <!-- Search dropdown -->
+            <div class="search-dd" id="searchDd">
+              <div class="dd-trigger" id="searchDdTrigger" tabindex="0">
+                <span class="search-dd-value" id="searchDdValue"><span class="search-dd-placeholder">Search</span></span>
+                <span class="dd-chevron"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l4 4 4-4"/></svg></span>
+              </div>
+              <div class="search-dd-panel" id="searchDdPanel" style="display:none">
+                <div class="search-dd-input-wrap">
+                  <input class="search-dd-input" id="searchDdInput" type="text" placeholder="Search" autocomplete="off">
+                  <span class="search-dd-magnifier">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </span>
+                </div>
+                <div class="search-dd-list" id="searchDdList"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Create new asset link -->
+          <button class="assign-create-link" id="assignCreateLink" type="button">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+            Create new asset
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Inline create form – shown below assign row when creating -->
+      <div class="create-inline" id="createInline" style="display:none">
+
+        <!-- header -->
+        <div class="create-inline-header">
+          <button class="create-back-btn" id="createInlineCancel" type="button">
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1L1 6l5 5"/></svg>
+            Create new asset
+          </button>
+        </div>
+
+        <!-- Type field -->
+        <div class="create-field-row">
+          <span class="create-field-label">Type <span class="req">*</span></span>
+          <select id="createAssetType">
+            <option value="box">Box</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="trailer">Trailer</option>
+            <option value="container">Container</option>
+          </select>
+        </div>
+
+        <!-- Reference field -->
+        <div class="create-field-row" style="align-items:flex-start; padding-bottom: 10px;">
+          <span class="create-field-label" style="padding-top:8px">Name <span class="req">*</span></span>
+          <div class="create-ref-wrap">
+            <input class="create-ref-input" id="createAssetRef" type="text" placeholder="e.g. ABC-001" autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Conflict panel (shown when similar assets found) -->
+        <div class="conflict-panel" id="conflictPanel" style="display:none">
+          <div class="conflict-panel-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c49a00" stroke-width="2.2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="#c49a00"/></svg>
+            Similar assets found — is it one of these?
+          </div>
+          <div id="conflictList"></div>
+        </div>
+
+        <!-- create actions (tertiary) -->
+        <div class="create-inline-actions">
+          <button class="btn-tertiary" id="createInlineCancelBtn" type="button">Cancel</button>
+          <button class="btn-tertiary btn-tertiary-primary" id="createInlineConfirm" type="button" style="display:none">Create asset</button>
+        </div>
+
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Tracking</span>
+        <div class="field-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="fieldTracking">
+            <span class="toggle-track"></span>
+            <span class="toggle-thumb"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tracking-hint">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>When tracking is enabled, this tag will start collecting location data for the assigned asset. <strong>Only tracked tags are billed</strong> — enabling tracking will count toward your usage and affect your invoice at the end of the billing period.</span>
+      </div>
+
+    </div>
+
+    <!-- footer -->
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn">Save changes</button>
+    </div>
+
+  </div>
+</div>
+
+
+<script>
+  // Table data
+  const rows = [
+    { serial: '1234567890', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '0987654321', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '1234567891', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '0987654324', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '1234567892', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: '-',     tracking: false },
+    { serial: '0987654325', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '1234567893', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '0987654326', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '1234567894', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+    { serial: '0987654327', assigned: 'Not assigned', type: '-', lastData: '-', lastAddr: '-', radius: '75m', scanned: 'Value',  tracking: false },
+  ];
+
+  const editIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const trashIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+
+  const tbody = document.getElementById('tableBody');
+  rows.forEach((r, i) => {
+    const isMuted = v => v === '-' || v === 'Not assigned';
+    tbody.innerHTML += `
+    <tr>
+      <td>${r.serial}</td>
+      <td>${isMuted(r.assigned)
+        ? `<button class="assign-cta" data-row-index="${i}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Not assigned</button>`
+        : `<a class="asset-link" href="#" data-asset-ref="${r.assigned}">${r.assigned}</a>`
+      }</td>
+      <td class="${isMuted(r.type) ? 'muted' : ''}">${r.type}</td>
+      <td class="${isMuted(r.lastData) ? 'muted' : ''}">${r.lastData}</td>
+      <td class="${isMuted(r.lastAddr) ? 'muted' : ''}">${r.lastAddr}</td>
+      <td class="${isMuted(r.scanned) ? 'muted' : ''}">${r.scanned}</td>
+      <td>
+        <label class="toggle-label">
+          <input type="checkbox"${isMuted(r.assigned) ? ' disabled' : ''}>
+          <span class="toggle-track"></span>
+          <span class="toggle-thumb"></span>
+        </label>
+      </td>
+      <td>${isMuted(r.assigned)
+        ? `<button class="assign-btn edit-btn">${editIcon} Assign</button>`
+        : `<button class="edit-btn">${editIcon} Edit</button>`
+      }</td>
+      <td><button class="del-btn">${trashIcon}</button></td>
+    </tr>`;
+  });
+
+  // Sync table toggle → rows data
+  document.getElementById('tableBody').addEventListener('change', e => {
+    const input = e.target.closest('.toggle-label input');
+    if (!input) return;
+    const tr = input.closest('tr');
+    const index = [...document.querySelectorAll('#tableBody tr')].indexOf(tr);
+    if (index >= 0) rows[index].tracking = input.checked;
+  });
+
+  // ── BLE tabs (Saved / Scanned) ────────────────────────
+  function setTab(el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ── Asset profile view ────────────────────────────────
+  const bleView     = document.getElementById('bleView');
+  const profileView = document.getElementById('profileView');
+
+  const TYPE_ICONS_LG = {
+    box:       `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
+    vehicle:   `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+    trailer:   `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="18" height="11" rx="1"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><line x1="19" y1="11" x2="23" y2="11"/></svg>`,
+    container: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>`,
+  };
+
+  function openProfile(assetRef) {
+    const asset = knownAssets.find(a => a.ref === assetRef);
+    if (!asset) return;
+
+    // populate header
+    document.getElementById('profName').textContent      = asset.ref;
+    document.getElementById('profTitleIcon').innerHTML   = TYPE_ICONS_LG[asset.type];
+    document.getElementById('profPhotoIcon').innerHTML   = TYPE_ICONS_LG[asset.type];
+    document.getElementById('profMapMarker').textContent = asset.ref.split(' ').pop();
+
+    // populate spec tab
+    document.getElementById('specType').textContent = TYPE_LABELS[asset.type];
+    document.getElementById('specRef').textContent  = asset.ref;
+
+    // reset tabs to Specification
+    document.querySelectorAll('.prof-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.prof-tab[data-panel="spec"]').classList.add('active');
+    ['Spec','Service','Repair','Docs','Damage'].forEach(p =>
+      document.getElementById('profPanel' + p).style.display = 'none'
+    );
+    document.getElementById('profPanelSpec').style.display = '';
+
+    bleView.style.display     = 'none';
+    profileView.style.display = '';
+    window.scrollTo(0, 0);
+  }
+
+  document.getElementById('profileBackBtn').addEventListener('click', () => {
+    profileView.style.display = 'none';
+    bleView.style.display     = '';
+  });
+
+  // profile tab switching
+  document.querySelector('.prof-tabs-bar').addEventListener('click', e => {
+    const tab = e.target.closest('.prof-tab');
+    if (!tab) return;
+    document.querySelectorAll('.prof-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const panels = { spec:'Spec', service:'Service', repair:'Repair', docs:'Docs', damage:'Damage' };
+    Object.values(panels).forEach(p => document.getElementById('profPanel' + p).style.display = 'none');
+    document.getElementById('profPanel' + panels[tab.dataset.panel]).style.display = '';
+  });
+
+  // open profile on asset link click / open edit modal on assign-cta click
+  document.getElementById('tableBody').addEventListener('click', e => {
+    const link = e.target.closest('.asset-link');
+    if (link) { e.preventDefault(); openProfile(link.dataset.assetRef); return; }
+    const cta = e.target.closest('.assign-cta');
+    if (cta) openModal(parseInt(cta.dataset.rowIndex, 10));
+  });
+
+  // ── Asset catalogue ───────────────────────────────────
+  const TYPE_LABELS = { box: 'Box', vehicle: 'Vehicle', trailer: 'Trailer', container: 'Container' };
+  const knownAssets = [
+    { id: 'a1',  type: 'box',       ref: 'Blue 123' },
+    { id: 'a2',  type: 'box',       ref: 'Blue 456' },
+    { id: 'a3',  type: 'box',       ref: 'Blue 7889' },
+    { id: 'a4',  type: 'box',       ref: 'Green 123' },
+    { id: 'a5',  type: 'box',       ref: 'Green 222' },
+    { id: 'a6',  type: 'box',       ref: 'Green 555' },
+    { id: 'a7',  type: 'box',       ref: 'Red 999' },
+    { id: 'a8',  type: 'box',       ref: 'Red 0001' },
+    { id: 'a9',  type: 'vehicle',   ref: 'Truck 001' },
+    { id: 'a10', type: 'vehicle',   ref: 'Truck 002' },
+    { id: 'a11', type: 'vehicle',   ref: 'Van 007' },
+    { id: 'a12', type: 'vehicle',   ref: 'Van 012' },
+    { id: 'a13', type: 'trailer',   ref: 'Trailer A1' },
+    { id: 'a14', type: 'trailer',   ref: 'Trailer B2' },
+    { id: 'a15', type: 'trailer',   ref: 'Trailer C3' },
+    { id: 'a16', type: 'container', ref: 'Container X1' },
+    { id: 'a17', type: 'container', ref: 'Container Y2' },
+  ];
+  let nextAssetId = 18;
+
+  // ── Edit modal DOM refs ───────────────────────────────
+  const overlay       = document.getElementById('editOverlay');
+  const closeBtn      = document.getElementById('modalCloseBtn');
+  const cancelBtn     = document.getElementById('modalCancelBtn');
+  const saveBtn       = document.getElementById('modalSaveBtn');
+  const modalFooter   = cancelBtn.closest('.modal-footer');
+  const fieldSerial   = document.getElementById('fieldSerial');
+  const fieldTracking = document.getElementById('fieldTracking');
+
+  // ── Type + Search dropdown DOM refs ───────────────────
+  const typeDdTrigger  = document.getElementById('typeDdTrigger');
+  const typeDdIcon     = document.getElementById('typeDdIcon');
+  const typeDdText     = document.getElementById('typeDdText');
+  const typeDdPanel    = document.getElementById('typeDdPanel');
+  const searchDdTrigger= document.getElementById('searchDdTrigger');
+  const searchDdValue  = document.getElementById('searchDdValue');
+  const searchDdPanel  = document.getElementById('searchDdPanel');
+  const searchDdInput  = document.getElementById('searchDdInput');
+  const searchDdList   = document.getElementById('searchDdList');
+  const assignCreateLink = document.getElementById('assignCreateLink');
+
+  // ── Inline create form DOM refs ───────────────────────
+  const createInline          = document.getElementById('createInline');
+  const createInlineCancel    = document.getElementById('createInlineCancel');
+  const createInlineCancelBtn = document.getElementById('createInlineCancelBtn');
+  const createInlineConfirm   = document.getElementById('createInlineConfirm');
+  const createAssetType       = document.getElementById('createAssetType');
+  const createAssetRef        = document.getElementById('createAssetRef');
+  const conflictPanel         = document.getElementById('conflictPanel');
+  const conflictList          = document.getElementById('conflictList');
+
+  // ── Dropdown state ────────────────────────────────────
+  let currentTypeKey  = 'box';
+  let selectedAssetId = null;
+  let searchFocusIdx  = -1;
+
+  // ── Type icons ────────────────────────────────────────
+  const TYPE_ICONS = {
+    box:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
+    vehicle:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+    trailer:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="18" height="11" rx="1"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><line x1="19" y1="11" x2="23" y2="11"/></svg>`,
+    container: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>`,
+  };
+
+  // ── Type dropdown ─────────────────────────────────────
+  function typeDdIsOpen() { return typeDdPanel.style.display !== 'none'; }
+
+  function buildTypeDdPanel() {
+    typeDdPanel.innerHTML = Object.entries(TYPE_LABELS).map(([key, label]) => `
+      <div class="type-option${key === currentTypeKey ? ' selected' : ''}" data-key="${key}">
+        <span class="type-opt-icon">${TYPE_ICONS[key]}</span>
+        ${label}
+        <svg class="type-opt-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>`).join('');
+  }
+
+  function openTypeDd() {
+    closeSearchDd();
+    buildTypeDdPanel();
+    typeDdPanel.style.display = '';
+    typeDdTrigger.classList.add('open');
+  }
+  function closeTypeDd() {
+    typeDdPanel.style.display = 'none';
+    typeDdTrigger.classList.remove('open');
+  }
+  function setType(key) {
+    currentTypeKey = key;
+    typeDdIcon.innerHTML = TYPE_ICONS[key];
+    typeDdText.textContent = TYPE_LABELS[key];
+    // clear search selection when type changes
+    if (selectedAssetId && knownAssets.find(a => a.id === selectedAssetId)?.type !== key) {
+      selectedAssetId = null;
+      renderSearchDdValue();
+    }
+    closeTypeDd();
+  }
+
+  typeDdTrigger.addEventListener('click', () => typeDdIsOpen() ? closeTypeDd() : openTypeDd());
+  typeDdTrigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); typeDdIsOpen() ? closeTypeDd() : openTypeDd(); }
+    if (e.key === 'Escape') closeTypeDd();
+  });
+  typeDdPanel.addEventListener('click', e => {
+    const opt = e.target.closest('.type-option');
+    if (opt) setType(opt.dataset.key);
+  });
+
+  // ── Search dropdown ───────────────────────────────────
+  function searchDdIsOpen() { return searchDdPanel.style.display !== 'none'; }
+
+  function renderSearchDdValue() {
+    if (selectedAssetId) {
+      const a = knownAssets.find(x => x.id === selectedAssetId);
+      if (a) { searchDdValue.textContent = a.ref; return; }
+    }
+    searchDdValue.innerHTML = '<span class="search-dd-placeholder">Search</span>';
+  }
+
+  function buildSearchList(query) {
+    const q = query.trim().toLowerCase();
+    const trimmed = query.trim();
+    const matches = knownAssets.filter(a =>
+      a.type === currentTypeKey && (!q || a.ref.toLowerCase().includes(q))
+    );
+    let html = '';
+    if (!matches.length) {
+      html = `<div class="search-empty">${q ? `No results for "${trimmed}"` : 'No assets of this type'}</div>`;
+    } else {
+      html = matches.map(a =>
+        `<div class="search-option${a.id === selectedAssetId ? ' selected' : ''}" data-id="${a.id}">${highlight(a.ref, q)}</div>`
+      ).join('');
+    }
+    if (trimmed) {
+      html += `<div class="search-create-option" data-create-query="${trimmed.replace(/"/g, '&quot;')}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create &ldquo;${trimmed}&rdquo;
+      </div>`;
+    }
+    searchDdList.innerHTML = html;
+    searchFocusIdx = -1;
+  }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    const idx = text.toLowerCase().indexOf(q);
+    if (idx === -1) return text;
+    return text.slice(0, idx) + `<strong>${text.slice(idx, idx + q.length)}</strong>` + text.slice(idx + q.length);
+  }
+
+  function openSearchDd() {
+    closeTypeDd();
+    searchDdInput.value = '';
+    buildSearchList('');
+    searchDdPanel.style.display = 'flex';
+    searchDdTrigger.classList.add('open');
+    searchDdInput.focus();
+  }
+  function closeSearchDd() {
+    searchDdPanel.style.display = 'none';
+    searchDdTrigger.classList.remove('open');
+    searchFocusIdx = -1;
+  }
+  function selectAsset(id) {
+    selectedAssetId = id;
+    // sync the type dropdown to match
+    const a = knownAssets.find(x => x.id === id);
+    if (a && a.type !== currentTypeKey) {
+      currentTypeKey = a.type;
+      typeDdIcon.innerHTML = TYPE_ICONS[a.type];
+      typeDdText.textContent = TYPE_LABELS[a.type];
+    }
+    renderSearchDdValue();
+    closeSearchDd();
+    closeCreateInline();
+    updateSaveBtn();
+  }
+
+  function moveSearchFocus(dir) {
+    const opts = [...searchDdList.querySelectorAll('.search-option')];
+    if (!opts.length) return;
+    opts.forEach(o => o.classList.remove('focused'));
+    searchFocusIdx = Math.max(0, Math.min(opts.length - 1, searchFocusIdx + dir));
+    opts[searchFocusIdx].classList.add('focused');
+    opts[searchFocusIdx].scrollIntoView({ block: 'nearest' });
+  }
+
+  searchDdTrigger.addEventListener('click', () => searchDdIsOpen() ? closeSearchDd() : openSearchDd());
+  searchDdTrigger.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); searchDdIsOpen() ? closeSearchDd() : openSearchDd(); }
+    if (e.key === 'Escape') closeSearchDd();
+  });
+  searchDdInput.addEventListener('input', () => buildSearchList(searchDdInput.value));
+  searchDdInput.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSearchFocus(1); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); moveSearchFocus(-1); }
+    if (e.key === 'Enter') {
+      const focused = searchDdList.querySelector('.search-option.focused');
+      if (focused) { selectAsset(focused.dataset.id); return; }
+      const createOpt = searchDdList.querySelector('.search-create-option');
+      if (createOpt && searchFocusIdx === -1) {
+        const query = createOpt.dataset.createQuery;
+        closeSearchDd();
+        openCreateInline();
+        createAssetRef.value = query;
+        renderConflicts();
+      }
+    }
+    if (e.key === 'Escape') closeSearchDd();
+  });
+  searchDdList.addEventListener('click', e => {
+    const createOpt = e.target.closest('.search-create-option');
+    if (createOpt) {
+      const query = createOpt.dataset.createQuery;
+      // check conflicts before deciding which flow to use
+      const conflicts = knownAssets.filter(a =>
+        a.type === currentTypeKey && (
+          a.ref.toLowerCase() === query.toLowerCase() ||
+          a.ref.toLowerCase().includes(query.toLowerCase()) ||
+          query.toLowerCase().includes(a.ref.toLowerCase())
+        )
+      );
+      if (conflicts.length) {
+        // conflicts exist — open inline form so user can review and decide
+        closeSearchDd();
+        openCreateInline();
+        createAssetRef.value = query;
+        renderConflicts();
+      } else {
+        // no conflicts — create and select immediately
+        closeSearchDd();
+        const newId = `a${nextAssetId++}`;
+        knownAssets.push({ id: newId, type: currentTypeKey, ref: query });
+        selectAsset(newId);
+      }
+      return;
+    }
+    const opt = e.target.closest('.search-option');
+    if (opt) selectAsset(opt.dataset.id);
+  });
+  searchDdList.addEventListener('mousemove', e => {
+    const opt = e.target.closest('.search-option');
+    if (!opt) return;
+    searchDdList.querySelectorAll('.search-option').forEach(o => o.classList.remove('focused'));
+    opt.classList.add('focused');
+    searchFocusIdx = [...searchDdList.querySelectorAll('.search-option')].indexOf(opt);
+  });
+
+  // close both dropdowns when clicking outside
+  document.addEventListener('mousedown', e => {
+    if (typeDdIsOpen()   && !document.getElementById('typeDd').contains(e.target))   closeTypeDd();
+    if (searchDdIsOpen() && !document.getElementById('searchDd').contains(e.target)) closeSearchDd();
+  });
+
+  assignCreateLink.addEventListener('click', openCreateInline);
+
+  // ── Inline create form ────────────────────────────────
+  function openCreateInline() {
+    closeTypeDd();
+    closeSearchDd();
+    createAssetType.value = currentTypeKey;
+    createAssetRef.value  = '';
+    createAssetRef.style.borderColor = '';
+    createAssetRef.style.boxShadow   = '';
+    conflictPanel.style.display = 'none';
+    conflictList.innerHTML = '';
+    createInlineConfirm.style.display = 'none';
+    typeDdTrigger.classList.add('disabled');
+    searchDdTrigger.classList.add('disabled');
+    assignCreateLink.classList.add('hidden');
+    createInline.style.display = '';
+    setTimeout(() => createAssetRef.focus(), 30);
+  }
+
+  function closeCreateInline() {
+    createInline.style.display = 'none';
+    typeDdTrigger.classList.remove('disabled');
+    searchDdTrigger.classList.remove('disabled');
+    assignCreateLink.classList.remove('hidden');
+  }
+
+  function findConflicts() {
+    const type = createAssetType.value;
+    const ref  = createAssetRef.value.trim().toLowerCase();
+    if (ref.length < 2) return [];
+    return knownAssets.filter(a =>
+      a.type === type && (
+        a.ref.toLowerCase() === ref ||
+        a.ref.toLowerCase().includes(ref) ||
+        ref.includes(a.ref.toLowerCase())
+      )
+    );
+  }
+
+  function hasExactMatch() {
+    const type = createAssetType.value;
+    const ref  = createAssetRef.value.trim().toLowerCase();
+    return !!ref && knownAssets.some(a => a.type === type && a.ref.toLowerCase() === ref);
+  }
+
+  function renderConflicts() {
+    const conflicts = findConflicts();
+    const exact = hasExactMatch();
+
+    if (exact) {
+      createAssetRef.style.borderColor = '#e74c3c';
+      createAssetRef.style.boxShadow   = '0 0 0 2px rgba(231,76,60,.12)';
+    } else {
+      createAssetRef.style.borderColor = '';
+      createAssetRef.style.boxShadow   = '';
+    }
+
+    if (conflicts.length) {
+      conflictList.innerHTML = conflicts.map(a => `
+        <div class="conflict-row">
+          <span class="conflict-row-icon">${TYPE_ICONS[a.type]}</span>
+          <span class="conflict-row-type">${TYPE_LABELS[a.type]}</span>
+          <span class="conflict-row-name">${a.ref}</span>
+          <button class="conflict-assign-btn" data-id="${a.id}" type="button">
+            Assign to this
+            <svg width="6" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l4 4-4 4"/></svg>
+          </button>
+        </div>`).join('');
+      conflictPanel.style.display = '';
+    } else {
+      conflictPanel.style.display = 'none';
+      conflictList.innerHTML = '';
+    }
+    // hide Create asset button on exact match or empty ref
+    createInlineConfirm.style.display = (createAssetRef.value.trim() && !exact) ? '' : 'none';
+  }
+
+  conflictList.addEventListener('click', e => {
+    const btn = e.target.closest('.conflict-assign-btn');
+    if (btn) { selectAsset(btn.dataset.id); closeCreateInline(); }
+  });
+
+  createAssetRef.addEventListener('input', renderConflicts);
+  createAssetType.addEventListener('change', renderConflicts);
+
+  function submitCreateAsset() {
+    const type = createAssetType.value;
+    const ref  = createAssetRef.value.trim();
+    if (!ref || hasExactMatch()) return;
+    const newId = `a${nextAssetId++}`;
+    knownAssets.push({ id: newId, type, ref });
+    selectAsset(newId);
+    closeCreateInline();
+  }
+
+  createInlineCancel.addEventListener('click', closeCreateInline);
+  createInlineCancelBtn.addEventListener('click', closeCreateInline);
+  createInlineConfirm.addEventListener('click', submitCreateAsset);
+  createAssetRef.addEventListener('keydown', e => { if (e.key === 'Enter' && !findConflicts().length && createAssetRef.value.trim()) submitCreateAsset(); });
+
+  // ── Tracking toggle ───────────────────────────────────
+  function updateSaveBtn() {
+    saveBtn.disabled = fieldTracking.checked && !selectedAssetId;
+  }
+
+  function updateTrackingUI() {
+    updateSaveBtn();
+  }
+  fieldTracking.addEventListener('change', updateTrackingUI);
+
+  // ── Edit modal open / close ───────────────────────────
+  let activeRowIndex = null;
+
+  function openModal(rowIndex) {
+    activeRowIndex = rowIndex;
+    const r = rows[rowIndex];
+    fieldSerial.value     = r.serial;
+    fieldTracking.checked = r.tracking || false;
+    // restore previously assigned asset if any
+    const existingAsset = r.assigned !== 'Not assigned'
+      ? knownAssets.find(a => a.ref === r.assigned) : null;
+    selectedAssetId = existingAsset ? existingAsset.id : null;
+    currentTypeKey  = existingAsset ? existingAsset.type : 'box';
+    typeDdIcon.innerHTML   = TYPE_ICONS[currentTypeKey];
+    typeDdText.textContent = TYPE_LABELS[currentTypeKey];
+    renderSearchDdValue();
+    updateTrackingUI();
+    overlay.classList.add('open');
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    closeTypeDd();
+    closeSearchDd();
+    closeCreateInline();
+    activeRowIndex = null;
+  }
+
+  function saveModal() {
+    if (activeRowIndex === null) return;
+    const r = rows[activeRowIndex];
+    const trs = document.querySelectorAll('#tableBody tr');
+    const tr = trs[activeRowIndex];
+    if (tr) {
+      const cells = tr.querySelectorAll('td');
+      // persist assigned asset
+      if (selectedAssetId) {
+        const asset = knownAssets.find(a => a.id === selectedAssetId);
+        if (asset) {
+          r.assigned = asset.ref;
+          r.type     = TYPE_LABELS[asset.type];
+          cells[1].innerHTML = `<a class="asset-link" href="#" data-asset-ref="${asset.ref}">${asset.ref}</a>`;
+          cells[1].classList.remove('muted');
+          cells[2].textContent = TYPE_LABELS[asset.type];
+          cells[2].classList.remove('muted');
+          // swap Assign button → Edit link
+          cells[7].innerHTML = `<button class="edit-btn">${editIcon} Edit</button>`;
+        }
+      }
+      // sync tracking state → table toggle
+      r.tracking = fieldTracking.checked;
+      const tableToggle = tr.querySelector('.toggle-label input');
+      tableToggle.disabled = r.assigned === 'Not assigned';
+      tableToggle.checked  = r.tracking;
+    }
+    closeModal();
+  }
+
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  saveBtn.addEventListener('click', saveModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (searchDdIsOpen()) { closeSearchDd(); return; }
+      if (typeDdIsOpen())   { closeTypeDd();   return; }
+      if (createInline.style.display !== 'none') { closeCreateInline(); return; }
+      closeModal();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.edit-btn');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const index = [...document.querySelectorAll('#tableBody tr')].indexOf(tr);
+    if (index >= 0) openModal(index);
+  });
+
+  // initialise type icon
+  typeDdIcon.innerHTML = TYPE_ICONS['box'];
+
+  // ── Map ↔ BLE navigation ──────────────────────────────
+  function goToBle() {
+    document.getElementById('mapView').style.display = 'none';
+    document.getElementById('appView').style.display = '';
+  }
+  function goToMap() {
+    document.getElementById('appView').style.display = 'none';
+    document.getElementById('mapView').style.display = '';
+  }
+  document.getElementById('mvSettingsBtn').addEventListener('click', goToBle);
+  document.getElementById('mvGoToBle').addEventListener('click', e => { e.preventDefault(); goToBle(); });
+  document.getElementById('appNavMapBtn').addEventListener('click', goToMap);
+</script>
+</body>
+</html>
